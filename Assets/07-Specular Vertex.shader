@@ -1,53 +1,80 @@
-﻿Shader "Custom/07"
+﻿// Upgrade NOTE: replaced '_World2Object' with 'unity_WorldToObject'
+
+// Upgrade NOTE: replaced '_World2Object' with 'unity_WorldToObject'
+
+// Upgrade NOTE: replaced 'mul(UNITY_MATRIX_MVP,*)' with 'UnityObjectToClipPos(*)'
+
+Shader "Siki/07-Specular Vertex"
 {
-    Properties
+  Properties
+  {
+    _Diffuse("Diffuse Color",Color) = (1,1,1,1)
+    _Specular("Specular Color",Color) = (1,1,1,1)
+    _Gloss("Gloss",Range(8,200))=10
+  }
+
+  SubShader
+  {
+    Pass
     {
-        _Color ("Color", Color) = (1,1,1,1)
-        _MainTex ("Albedo (RGB)", 2D) = "white" {}
-        _Glossiness ("Smoothness", Range(0,1)) = 0.5
-        _Metallic ("Metallic", Range(0,1)) = 0.0
+      Tags{"LightMode"="ForwardBase"}
+
+      CGPROGRAM
+
+      #include "Lighting.cginc"
+      #pragma vertex vert
+      #pragma fragment frag 
+
+      fixed4 _Diffuse;
+      fixed4 _Specular;
+      half _Gloss;
+
+      struct a2v
+      {
+        float4 vertex :POSITION;
+        float3 normal:NORMAL;
+      };
+
+      struct v2f
+      {
+        float4 position:SV_POSITION;
+        fixed3 color:COLOR;
+      };
+
+      v2f vert(a2v v)
+      {
+        v2f f;
+        
+        f.position=UnityObjectToClipPos(v.vertex);
+
+        fixed3 ambient = UNITY_LIGHTMODEL_AMBIENT.rgb;
+
+        fixed3 normalDir = normalize(mul(v.normal,(float3x3)unity_WorldToObject));
+
+        fixed3 lightDir = normalize(_WorldSpaceLightPos0.xyz);
+
+        fixed3 diffuse = _LightColor0.rgb * max(dot(normalDir,lightDir),0)*_Diffuse.rgb;
+
+        fixed3 reflectDir= normalize( reflect(-lightDir,normalDir));
+
+        fixed3 viewDir = normalize(_WorldSpaceCameraPos.xyz - mul(v.vertex,unity_WorldToObject).xyz);
+
+        fixed3 specular =_Specular.rgb* _LightColor0.rgb*pow(max(dot(reflectDir,viewDir),0),_Gloss);
+
+        f.color=diffuse+ambient+specular;
+
+        return f;
+      }
+
+      fixed4 frag(v2f f):SV_Target 
+      {
+        return fixed4(f.color,1);
+
+      }
+
+      ENDCG
+
     }
-    SubShader
-    {
-        Tags { "RenderType"="Opaque" }
-        LOD 200
 
-        CGPROGRAM
-        // Physically based Standard lighting model, and enable shadows on all light types
-        #pragma surface surf Standard fullforwardshadows
-
-        // Use shader model 3.0 target, to get nicer looking lighting
-        #pragma target 3.0
-
-        sampler2D _MainTex;
-
-        struct Input
-        {
-            float2 uv_MainTex;
-        };
-
-        half _Glossiness;
-        half _Metallic;
-        fixed4 _Color;
-
-        // Add instancing support for this shader. You need to check 'Enable Instancing' on materials that use the shader.
-        // See https://docs.unity3d.com/Manual/GPUInstancing.html for more information about instancing.
-        // #pragma instancing_options assumeuniformscaling
-        UNITY_INSTANCING_BUFFER_START(Props)
-            // put more per-instance properties here
-        UNITY_INSTANCING_BUFFER_END(Props)
-
-        void surf (Input IN, inout SurfaceOutputStandard o)
-        {
-            // Albedo comes from a texture tinted by color
-            fixed4 c = tex2D (_MainTex, IN.uv_MainTex) * _Color;
-            o.Albedo = c.rgb;
-            // Metallic and smoothness come from slider variables
-            o.Metallic = _Metallic;
-            o.Smoothness = _Glossiness;
-            o.Alpha = c.a;
-        }
-        ENDCG
-    }
-    FallBack "Diffuse"
+  }
 }
